@@ -2,11 +2,11 @@ const { Markup } = require('telegraf');
 const { REPORT_TYPES, MENU_LAYOUT, TEXT } = require('../constants');
 
 function menuKeyboard() {
-  return Markup.inlineKeyboard(
-    MENU_LAYOUT.map((row) =>
-      row.map((key) => Markup.button.callback(REPORT_TYPES[key].label, `type:${key}`))
-    )
+  const rows = MENU_LAYOUT.map((row) =>
+    row.map((key) => Markup.button.callback(REPORT_TYPES[key].label, `type:${key}`))
   );
+  rows.push([Markup.button.callback('💡 Saran Anonim', 'suggestion')]);
+  return Markup.inlineKeyboard(rows);
 }
 
 function showMenu(ctx) {

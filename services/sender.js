@@ -37,4 +37,21 @@ async function sendReport(telegram, { id, typeKey, data, evidence, user }) {
   };
 }
 
-module.exports = { newReportId, sendReport };
+async function sendSuggestion(telegram, text, user) {
+  const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || '-';
+  const username = user.username ? `@${user.username}` : '-';
+  const message =
+    `💡 Saran anonim\n\n${text}\n\n` +
+    '🔒 Identitas pengirim (hanya untuk owner):\n' +
+    `Nama Telegram: ${fullName}\nUsername: ${username}\nID: ${user.id}`;
+
+  try {
+    await telegram.sendMessage(OWNER_ID, message);
+    return true;
+  } catch (err) {
+    console.error('[sender] gagal kirim saran anonim ke owner:', err.message);
+    return false;
+  }
+}
+
+module.exports = { newReportId, sendReport, sendSuggestion };

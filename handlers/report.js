@@ -1,10 +1,11 @@
 const { Markup } = require('telegraf');
 const { REPORT_TYPES, AREAS, LIMITS, COOLDOWN_MS, TEXT } = require('../constants');
 const { buildPreview } = require('../utils/format');
-const { newReportId, sendReport } = require('../services/sender');
+const { newReportId, sendReport, sendSuggestion } = require('../services/sender');
 
 const cancelKb = Markup.inlineKeyboard([[Markup.button.callback('❌ Batal', 'cancel')]]);
 const lastSent = new Map(); // userId -> timestamp report terakhir (in-memory, tanpa database)
+const lastSuggestion = new Map();
 
 function stepsFor(typeKey) {
   const t = REPORT_TYPES[typeKey];
@@ -82,6 +83,7 @@ function inRange(text, { min, max }) {
 
 async function startFlow(ctx, typeKey) {
   const t = REPORT_TYPES[typeKey];
+  ctx.session.suggestion = false;
   ctx.session.report = {
     typeKey,
     steps: stepsFor(typeKey),
@@ -98,6 +100,28 @@ async function startFlow(ctx, typeKey) {
 async function onText(ctx) {
   const text = ctx.message.text.trim();
   if (text.startsWith('/')) return ctx.reply('Perintah tidak dikenal. Ketik /start atau /batal.');
+
+  if (ctx.session.suggestion) {
+    if (text.length < LIMITS.suggestion.min || text.length > LIMITS.suggestion.max) {
+      return ctx.reply(
+        `Saran harus ${LIMITS.suggestion.min}-${LIMITS.suggestion.max} karakter. Coba lagi.`
+      );
+    }
+
+    const wait = (lastSuggestion.get(ctx.from.id) || 0) + COOLDOWN_MS - Date.now();
+    if (wait > 0) {
+      return ctx.reply(`Tunggu ${Math.ceil(wait / 1000)} detik sebelum mengirim saran lagi.`);
+    }
+
+    const sent = await sendSuggestion(ctx.telegram, text, ctx.from);
+    if (!sent) {
+      return ctx.reply('❌ Saran gagal terkirim. Coba lagi beberapa saat lagi.');
+    }
+
+    lastSuggestion.set(ctx.from.id, Date.now());
+    ctx.session.suggestion = false;
+    return ctx.reply('✅ Saranmu sudah dikirim secara pribadi. Identitasmu hanya terlihat oleh owner. Terima kasih!');
+  }
 
   const r = ctx.session.report;
   if (!r) return ctx.reply(TEXT.noSession);
@@ -204,14 +228,26 @@ async function onConfirm(ctx) {
 async function onCancel(ctx) {
   await ctx.answerCbQuery();
   ctx.session.report = null;
+  ctx.session.suggestion = false;
   await ctx.editMessageReplyMarkup(undefined).catch(() => {});
-  return ctx.reply('Report dibatalkan. Ketik /start kalau mau membuat report lagi.');
+  return ctx.reply('Proses dibatalkan. Ketik /start untuk kembali ke menu.');
 }
 
 function register(bot) {
   bot.command('batal', (ctx) => {
     ctx.session.report = null;
-    return ctx.reply('Report dibatalkan. Ketik /start kalau mau membuat report lagi.');
+    ctx.session.suggestion = false;
+    return ctx.reply('Proses dibatalkan. Ketik /start untuk kembali ke menu.');
+  });
+
+  bot.action('suggestion', async (ctx) => {
+    await ctx.answerCbQuery();
+    ctx.session.report = null;
+    ctx.session.suggestion = true;
+    return ctx.reply(TEXT.suggestionNotice, {
+      parse_mode: 'HTML',
+      ...cancelKb,
+    });
   });
 
   bot.action(/^type:(\w+)$/, async (ctx) => {

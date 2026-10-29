@@ -12,7 +12,7 @@ bot.command('id', (ctx) => ctx.reply(`Chat ID: ${ctx.chat.id}`));
 bot.use((ctx, next) => (ctx.chat && ctx.chat.type === 'private' ? next() : undefined));
 
 // Session in-memory untuk melacak langkah percakapan (tanpa database).
-bot.use(session({ defaultSession: () => ({ report: null }) }));
+bot.use(session({ defaultSession: () => ({ report: null, suggestion: false }) }));
 
 start.register(bot);
 report.register(bot);

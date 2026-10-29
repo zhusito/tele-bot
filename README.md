@@ -1,6 +1,6 @@
 # Bot Report
 
-Bot Telegram (Node.js + Telegraf) untuk report anggota, admin/sentinel (masing-masing ada versi anonim), dan bug bot/web organisasi. Tanpa database.
+Bot Telegram (Node.js + Telegraf) untuk report anggota, admin/sentinel (masing-masing ada versi anonim), bug bot/web organisasi, dan kotak saran anonim. Tanpa database.
 
 ## Cara jalan
 1. `npm install`
@@ -20,6 +20,9 @@ Hasilnya dikirim ke dua tempat dengan ID report yang sama:
 - **Grup pool**: tanpa username/ID pelapor. Non-anonim hanya menampilkan nama yang diketik pelapor, anonim menampilkan "Anonim"
 
 Report bug (bot / web organisasi) diperlakukan seperti anonim di grup pool, dan identitasnya sampai ke owner.
+
+## Kotak saran anonim
+Pilih **Saran Anonim** dari menu utama, lalu kirim saran 10-1000 karakter. Saran dikirim pribadi ke owner dan tidak diposting ke grup pool atau ditampilkan ke pengguna lain. **Owner tetap melihat nama, username, dan ID Telegram pengirim.** Saran dibatasi satu kali per menit per akun (in-memory). Seperti fitur bot lainnya, sesi dan batas waktu kembali kosong setelah bot restart.
 
 ## Struktur
 - `index.js` entry point

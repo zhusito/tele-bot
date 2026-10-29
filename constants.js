@@ -47,6 +47,7 @@ const LIMITS = {
   name: { min: 2, max: 50 },
   target: { min: 2, max: 80 },
   reason: { min: 20, max: 500 }, // dibatasi karena caption Telegram maks 1024 karakter
+  suggestion: { min: 10, max: 1000 },
 };
 
 const COOLDOWN_MS = 60 * 1000; // jeda antar report per user
@@ -64,6 +65,10 @@ const TEXT = {
   namedNotice:
     'ℹ️ Nama yang kamu ketik akan tampil di grup. Username dan data akun lainnya tidak ditampilkan.',
   noSession: 'Belum ada report yang sedang dibuat. Ketik /start untuk mulai.',
+  suggestionNotice:
+    '💡 <b>Kotak saran anonim</b>\n' +
+    'Saranmu dikirim pribadi ke owner. Jangan sertakan informasi pribadi di isi saran kalau tidak ingin owner membaca.\n\n' +
+    `Tulis saranmu (${LIMITS.suggestion.min}-${LIMITS.suggestion.max} karakter).`,
 };
 
 module.exports = { REPORT_TYPES, MENU_LAYOUT, AREAS, LIMITS, COOLDOWN_MS, TEXT };
