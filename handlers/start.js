@@ -15,7 +15,6 @@ function showMenu(ctx) {
 
 function register(bot) {
   bot.start(showMenu);
-  bot.help(showMenu);
 }
 
 module.exports = { register, showMenu };

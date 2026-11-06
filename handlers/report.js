@@ -1,11 +1,16 @@
 const { Markup } = require('telegraf');
 const { REPORT_TYPES, AREAS, LIMITS, COOLDOWN_MS, TEXT } = require('../constants');
 const { buildPreview } = require('../utils/format');
-const { newReportId, sendReport, sendSuggestion } = require('../services/sender');
+const {
+  newReportId,
+  sendReport,
+  sendSuggestion,
+  REPORT_STATUSES,
+  statusKeyboard,
+} = require('../services/sender');
+const { OWNER_ID } = require('../config');
 
 const cancelKb = Markup.inlineKeyboard([[Markup.button.callback('❌ Batal', 'cancel')]]);
-const lastSent = new Map(); // userId -> timestamp report terakhir (in-memory, tanpa database)
-const lastSuggestion = new Map();
 
 function stepsFor(typeKey) {
   const t = REPORT_TYPES[typeKey];
@@ -97,7 +102,7 @@ async function startFlow(ctx, typeKey) {
   return prompt(ctx);
 }
 
-async function onText(ctx) {
+async function onText(ctx, storage) {
   const text = ctx.message.text.trim();
   if (text.startsWith('/')) return ctx.reply('Perintah tidak dikenal. Ketik /start atau /batal.');
 
@@ -108,7 +113,7 @@ async function onText(ctx) {
       );
     }
 
-    const wait = (lastSuggestion.get(ctx.from.id) || 0) + COOLDOWN_MS - Date.now();
+    const wait = storage.cooldownRemaining('suggestion', ctx.from.id, COOLDOWN_MS);
     if (wait > 0) {
       return ctx.reply(`Tunggu ${Math.ceil(wait / 1000)} detik sebelum mengirim saran lagi.`);
     }
@@ -118,7 +123,7 @@ async function onText(ctx) {
       return ctx.reply('❌ Saran gagal terkirim. Coba lagi beberapa saat lagi.');
     }
 
-    lastSuggestion.set(ctx.from.id, Date.now());
+    storage.recordSend('suggestion', ctx.from.id);
     ctx.session.suggestion = false;
     return ctx.reply('✅ Saranmu sudah dikirim secara pribadi. Identitasmu hanya terlihat oleh owner. Terima kasih!');
   }
@@ -182,12 +187,12 @@ async function onArea(ctx) {
   return advance(ctx);
 }
 
-async function onConfirm(ctx) {
+async function onConfirm(ctx, storage) {
   await ctx.answerCbQuery();
   const r = ctx.session.report;
   if (!r || currentStep(ctx) !== 'confirm' || r.sending) return;
 
-  const wait = (lastSent.get(ctx.from.id) || 0) + COOLDOWN_MS - Date.now();
+  const wait = storage.cooldownRemaining('report', ctx.from.id, COOLDOWN_MS);
   if (wait > 0) {
     return ctx.reply(`Tunggu ${Math.ceil(wait / 1000)} detik lagi sebelum kirim report berikutnya.`);
   }
@@ -196,6 +201,7 @@ async function onConfirm(ctx) {
   await ctx.editMessageReplyMarkup(undefined).catch(() => {});
 
   const id = newReportId();
+  storage.recordReport(id, ctx.from.id, r.typeKey);
   const { ownerOk, poolOk } = await sendReport(ctx.telegram, {
     id,
     typeKey: r.typeKey,
@@ -205,7 +211,7 @@ async function onConfirm(ctx) {
   });
 
   if (ownerOk && poolOk) {
-    lastSent.set(ctx.from.id, Date.now());
+    storage.recordSend('report', ctx.from.id);
     ctx.session.report = null;
     return ctx.reply(`✅ Report terkirim. ID report kamu: <b>#${id}</b>\nTerima kasih sudah melapor.`, {
       parse_mode: 'HTML',
@@ -213,7 +219,7 @@ async function onConfirm(ctx) {
   }
 
   if (ownerOk || poolOk) {
-    lastSent.set(ctx.from.id, Date.now());
+    storage.recordSend('report', ctx.from.id);
     ctx.session.report = null;
     return ctx.reply(
       `⚠️ Report <b>#${id}</b> baru terkirim sebagian. Hubungi owner dan sebutkan ID ini.`,
@@ -221,6 +227,7 @@ async function onConfirm(ctx) {
     );
   }
 
+  storage.deleteReport(id);
   r.sending = false;
   return ctx.reply('❌ Report gagal terkirim. Coba lagi beberapa saat lagi lewat tombol Kirim di atas atau /start ulang.');
 }
@@ -233,7 +240,34 @@ async function onCancel(ctx) {
   return ctx.reply('Proses dibatalkan. Ketik /start untuk kembali ke menu.');
 }
 
-function register(bot) {
+function register(bot, storage) {
+  bot.command('status', (ctx) => {
+    const id = ctx.message.text.trim().split(/\s+/)[1]?.replace(/^#/, '').toUpperCase();
+    if (!id || !/^[0-9A-F]{6}$/.test(id)) {
+      return ctx.reply('Format: /status ID_REPORT\nContoh: /status A1B2C3');
+    }
+
+    const report = storage.getReportForUser(id, ctx.from.id);
+    if (!report) return ctx.reply('Report tidak ditemukan. Pastikan ID benar dan report ini milikmu.');
+    return ctx.reply(`Status report #${id}: <b>${REPORT_STATUSES[report.status]}</b>`, {
+      parse_mode: 'HTML',
+    });
+  });
+
+  bot.action(/^report-status:([0-9A-F]{6}):(received|reviewing|resolved|rejected)$/, async (ctx) => {
+    await ctx.answerCbQuery();
+    if (ctx.from.id !== OWNER_ID) {
+      return ctx.reply('Hanya owner yang dapat mengubah status report.');
+    }
+
+    const [, id, status] = ctx.match;
+    if (!storage.updateReportStatus(id, status)) {
+      return ctx.reply('Report tidak ditemukan atau statusnya sudah tidak tersedia.');
+    }
+    await ctx.editMessageReplyMarkup(statusKeyboard(id, status).reply_markup);
+    return ctx.reply(`Status report #${id} diperbarui menjadi ${REPORT_STATUSES[status]}.`);
+  });
+
   bot.command('batal', (ctx) => {
     ctx.session.report = null;
     ctx.session.suggestion = false;
@@ -257,10 +291,10 @@ function register(bot) {
     return startFlow(ctx, key);
   });
   bot.action(/^area:(bot|web)$/, onArea);
-  bot.action('confirm', onConfirm);
+  bot.action('confirm', (ctx) => onConfirm(ctx, storage));
   bot.action('cancel', onCancel);
 
-  bot.on('text', onText);
+  bot.on('text', (ctx) => onText(ctx, storage));
   bot.on(['photo', 'video'], onMedia);
   bot.on('message', (ctx) =>
     ctx.reply('Jenis pesan ini tidak didukung. Kirim foto atau video sebagai bukti ya.')

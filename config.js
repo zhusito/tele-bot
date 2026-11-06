@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 
 function required(name) {
   const value = process.env[name];
@@ -22,4 +23,5 @@ module.exports = {
   BOT_TOKEN: required('BOT_TOKEN'),
   OWNER_ID: requiredNumber('OWNER_ID'),
   POOL_CHAT_ID: requiredNumber('POOL_CHAT_ID'),
+  DATABASE_PATH: process.env.DATABASE_PATH || path.join(__dirname, 'data', 'bot-report.sqlite'),
 };

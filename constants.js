@@ -57,6 +57,7 @@ const TEXT = {
     '👋 Halo! Ini bot report organisasi.\n\n' +
     'Semua report <b>wajib</b> disertai alasan yang jelas dan bukti berupa <b>foto atau video</b>. ' +
     'Report tanpa bukti tidak akan diproses.\n\n' +
+    'Untuk cek status report, kirim /status diikuti ID report.\n\n' +
     'Pilih jenis report:',
   anonNotice:
     '🔒 <b>Mode anonim</b>\n' +
