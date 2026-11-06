@@ -22,10 +22,13 @@ async function main() {
   bot.command('id', (ctx) => ctx.reply(`Chat ID: ${ctx.chat.id}`));
   poll.register(bot);
 
-  // Bot hanya melayani chat pribadi. Grup diabaikan.
-  bot.use((ctx, next) => (ctx.chat && ctx.chat.type === 'private' ? next() : undefined));
-
+  // Bot menerima sesi pada chat pribadi dan grup, tetapi tetap mengabaikan channel.
+  // Ini memungkinkan report yang dimulai dari DM atau grup tetap melanjutkan alur yang sama.
   // Session dan cooldown disimpan di SQLite agar bertahan setelah restart.
+  bot.use((ctx, next) =>
+    !ctx.chat || ['private', 'group', 'supergroup'].includes(ctx.chat.type) ? next() : undefined
+  );
+
   bot.use(
     session({
       store: storage.sessions,

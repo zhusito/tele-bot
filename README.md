@@ -8,14 +8,14 @@ Bot Telegram (Node.js + Telegraf) untuk report anggota, admin/sentinel (masing-m
    - `BOT_TOKEN` dari @BotFather
    - `OWNER_ID` ID Telegram kamu (cek lewat @userinfobot)
    - `POOL_CHAT_ID` ID grup pool: masukkan bot ke grup, ketik `/id` di grup itu
-3. Buka chat dengan bot dan tekan `/start` (wajib, supaya bot boleh kirim DM ke owner)
+3. Buka chat dengan bot dan tekan `/start` (wajib, supaya bot boleh kirim DM ke owner; report juga dapat dimulai dari grup jika diperlukan)
 4. `npm start`
 5. `npm test` untuk menjalankan tes otomatis
 
 Di VPS: `pm2 start index.js --name bot-report`
 
 ## Alur report
-Pelapor chat bot lewat DM: pilih jenis, isi nama (kalau tidak anonim), nama terlapor, alasan (min 20 karakter), lalu satu foto/video sebagai bukti, dan konfirmasi.
+Pelapor bisa memulai dari DM atau grup: pilih jenis, isi nama (kalau tidak anonim), nama terlapor, alasan (min 20 karakter), lalu satu foto/video sebagai bukti, dan konfirmasi.
 Hasilnya dikirim ke dua tempat dengan ID report yang sama:
 - **Owner**: lengkap dengan identitas asli pelapor (termasuk yang anonim)
 - **Grup pool**: tanpa username/ID pelapor. Non-anonim hanya menampilkan nama yang diketik pelapor, anonim menampilkan "Anonim"

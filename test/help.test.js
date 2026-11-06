@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { HELP_TEXT, register } = require('../handlers/help');
+const { register: registerStart } = require('../handlers/start');
 const { POOL_CHAT_ID } = require('../config');
 
 function getHelpHandler() {
@@ -51,4 +52,32 @@ test('/help does not respond in other groups', async () => {
     },
   });
   assert.equal(replied, false);
+});
+
+function getStartHandler() {
+  let handler;
+  registerStart({
+    start: (callback) => {
+      handler = callback;
+    },
+  });
+  return handler;
+}
+
+test('/start can be used in group chats too', async () => {
+  const handler = getStartHandler();
+  let reply;
+  let options;
+
+  await handler({
+    chat: { type: 'supergroup', id: POOL_CHAT_ID },
+    reply: (message, extra) => {
+      reply = message;
+      options = extra;
+    },
+  });
+
+  assert.match(reply, /Pilih jenis report:/);
+  assert.equal(options.parse_mode, 'HTML');
+  assert.ok(options.reply_markup.inline_keyboard.length >= 2);
 });
